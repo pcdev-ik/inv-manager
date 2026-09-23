@@ -2,57 +2,45 @@
 I haven't made a program since a scripting class nearly a year ago (✿◕_◕)
 I miss PyCharm... ( 〒▽〒)
 """
-# Define component functions
-#  get name of items
-def obj_name(inv):
-    while True:
-        name = (input("Name of Item: ")).strip()
-        if name in inv:
-            print("Item already exists.")
-        if name.strip() == "":
-            print("Please enter a valid name.")
-        else:
-            break
-    return name
-
-def obj_count():
-    while True:
-        while True:
-            try:
-                count = int(input("Quantity of Item: ")) # Input always records data as a string so it must be translated
-                if count > 0 and count <= 1000000:       # If value is good, break
-                    break
-                elif count <= 0:
-                    print("Please enter a valid quantity.")
-                elif count > 1000000:
-                    print("Please enter a quantity less than 1,000,000.")
-            except ValueError:
-                print("Please enter a whole number.")
-        if count >= 0:
-            break
-    return count
-
-def obj_price():
-    while True:
+# check name validity
+def obj_name(inv, name):
+    if name in inv:
+        print("Item already exists.")
+        return False
+    if name == "":
+        print("Please enter a valid name.")
+        return False
+    return True
+# check quantity validity
+def obj_count(count):
+    # Validate quantity values passed in from the caller.
+    if not isinstance(count, int): # if count isn't already an integer...
         try:
-            price = float(input("Price of Item: $"))
-            if price < 0:
-                price = price * -1
-                print(f"Price has been converted to positive.")
-            return price
-        except ValueError:
+            count = int(count) # ...make it an integer
+        except (TypeError, ValueError): # unless it's definitely not a number...
+            print("Please enter a whole number.") # ...then punish the user for their wrongdoing o(≧口≦)o
+            return False
+    if 0 < count <= 1000000:  # If value is good, break
+        return True
+    if count <= 0:
+        print("Please enter a valid quantity.")
+        return False
+    if count > 1000000:
+        print("Please enter a quantity less than 1,000,000.")
+        return False
+# check price validity
+def obj_price(price):
+    # Rewrite this to call inputs outside of the function and pass them in as arguments
+    if not isinstance(price, (int, float)): # if price isn't already a number...
+        try:
+            price = float(price) # ...make it a float
+        except (TypeError, ValueError):
             print("Please enter a valid number.")
-
-# Define big function that takes all inputs
-def add_item(inv):
-    name = obj_name(inv)
-    count = obj_count()
-    price = obj_price()
-    # adds the item to the inventory dictionary
-    inv[name] = {"quantity": count, "price": price}
-    # summary
-    print(f"The item {name} has been added with a quantity of {count} and a price of ${price:.2f}")
-    print(f"The total value of {name} in stock is ${(count * price):.2f}")
+            return False
+    if price < 0:
+        print("Please enter a valid price.")
+        return False
+    return True
 
 # Chart Maker (this is only here to clean up the code)
 def chart(inv):
@@ -93,14 +81,47 @@ Very Simple Inventory Manager
 3. Quit""")
     main_choice = input("Please select an option: ") # user selects
     if main_choice.lower() in Responses1:            # add record
-        add_item(inventory)                          # add_item is called
+        # Get name
+        while True:
+            name = input("Name of Item: ").strip() # strip spaces
+            # if name passes checks, break out of the loop
+            namegoodflag = obj_name(inventory, name)
+            if namegoodflag:
+                break
+        # Get quantity
+        while True:
+            try:
+                quantity = int(input("Quantity of Item: "))
+            except ValueError:
+                print("Please enter a whole number.")
+                continue
+            # if quantity passes checks, break out of the loop
+            quantitygoodflag = obj_count(quantity)
+            if quantitygoodflag:
+                break
+        # Get price
+        while True:
+            try:
+                price = float(input("Price of Item: $"))
+            except ValueError:
+                print("Please enter a valid number.") 
+                continue
+            # if price passes checks, break out of the loop
+            pricegoodflag = obj_price(price)
+            if pricegoodflag:
+                break
+
+        inventory[name] = {"quantity": quantity, "price": price}
+        # summary
+        print(f"The item {name} has been added with a quantity of {quantity} and a price of ${price:.2f}")
+        print(f"The total value of {name} in stock is ${(quantity * price):.2f}")
     elif main_choice.lower() in Responses2:          # view records
         if not inventory:                            # if the inventory is empty
             print("The inventory is empty.")
         else:
             # make the chart
             chart(inventory)                         # Call the chart function
-    elif main_choice.lower() in Responses3:                                                                            # quit
+    elif main_choice.lower() in Responses3:          # quit
         print("Goodbye!")
         break
     else:
