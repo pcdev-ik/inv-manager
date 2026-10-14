@@ -8,6 +8,18 @@ IMPORTS
 '''
 from pprint import pprint # not a clue why I'm required to use this
 import pandas as pd
+import signal
+import sys
+
+'''
+SIGINT HANDLER
+'''
+# Handle SIGINT (Ctrl+C)
+def sighandler(sig, frame):
+    print("\n Interrupt received. Exiting program...")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, sighandler)
 
 '''
 FILE MANAGEMENT
@@ -27,16 +39,22 @@ def name_inventory(name):
     return name
 
 # Load inventory from a csv file using a with statement
-def load_records(filename):
+def load_records(filename, inv):
     try:
         with open(filename, 'r') as file:
             pandalibrary = pd.read_csv(file, index_col=0)  # Load CSV into df
             return pandalibrary.to_dict(orient='index')  # Convert df back to dictionary
     # file corrupted or not found error handling
     except pd.errors.EmptyDataError:
-        return ({}, f"File '{filename}' is empty or corrupted. Starting with an empty inventory.")
+        if inv:  # if the inventory is not empty
+            return (inv, f"File '{filename}' is empty or corrupted. Keeping current inventory.")
+        if not inv:  # if the inventory is empty
+            return ({}, f"File '{filename}' is empty or corrupted. Starting with an empty inventory.")
     except FileNotFoundError:
-        return ({}, f"File '{filename}' not found. Starting with an empty inventory.")
+        if inv:  # if the inventory is not empty
+            return (inv, f"File '{filename}' not found. Keeping current inventory.")
+        if not inv:  # if the inventory is empty
+            return ({}, f"File '{filename}' not found. Starting with an empty inventory.")
 
 # Save record file
 '''
@@ -49,6 +67,8 @@ def name_obj(inv, name):
         return (False, "Item already exists.")
     if name == "":
         return (False, "Name cannot be blank.")
+    if len(name) > 500:
+        return (False, "Name cannot exceed 500 characters.")
     return (True, f"Name is {name}.")
 
 # user inputs quantity and function checks if it's valid
@@ -169,8 +189,8 @@ def create_order(inv):
 
         item_name = input("Enter item name to add to order (or 'done' to finish): ").strip()
         if item_name.lower() == "done":
-            if not selected:
-                return False, "No items were selected for the order."
+            if not selected:                                            # check if anything was ordered
+                return False, "No items were selected for the order."   
             break
 
         if item_name == "":
@@ -304,8 +324,8 @@ Very Simple Inventory Manager
         elif main_choice.lower() in Responses5:
             filename = input("Enter filename to import inventory (default: inventory.csv): ")
             filename = name_inventory(filename)
-            inventory = load_records(filename)
-            print(load_records(filename)[1])  # Print the message from load_records
+            inventory = load_records(filename, inventory)[0]  # Load records and update inventory
+            print(load_records(filename, inventory)[1])  # Print the message from load_records
 
         # EXPORT RECORDS
         elif main_choice.lower() in Responses6:
@@ -317,35 +337,68 @@ Very Simple Inventory Manager
                 save_records(inventory, filename)
                 print(f"Inventory saved to '{filename}'.")
 
-        # QUIT
-        elif main_choice.lower() in Responses7:
-            if inventory:       # Check if the user created any records
-                confirm = input("Would you like to save your inventory? (Y/n): ").strip().lower()
-                if confirm in ['y', 'yes']:
-                    potentialname = input("Enter filename to save inventory (default: inventory.csv): ")
-                    filename = name_inventory(potentialname)
-                    save_records(inventory, filename)
-                    print(f"Inventory saved to '{filename}'. Goodbye!")
-                if confirm in ['n', 'no']:
-                    print("Goodbye!")
-                    break
-            if not inventory:   # Just exit if there's no inventory
-                print("Goodbye!")
-                break
-        else:
-            print("Invalid option. Please try again.")
-
-if __name__ == "__main__":
-    main()#!/usr/bin/env python3
+        # QUIT#!/usr/bin/env python3
 """
 I haven't made a program since a scripting class nearly a year ago (✿◕_◕)
 I miss PyCharm... ( 〒▽〒)
 """
 '''
-ADD ITEM TO INVENTORY
+IMPORTS
 '''
 from pprint import pprint # not a clue why I'm required to use this
+import pandas as pd
+import signal
+import sys
 
+'''
+SIGINT HANDLER
+'''
+# Handle SIGINT (Ctrl+C)
+def sighandler(sig, frame):
+    print("\n Interrupt received. Exiting program...")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, sighandler)
+
+'''
+FILE MANAGEMENT
+'''
+# Save inventory to a CSV file
+def save_records(record, filename):
+    pandalibrary = pd.DataFrame.from_dict(record, orient='index')  # Convert inventory dictionary to df (turns item names into row labels)
+    pandalibrary.to_csv(filename)  # Save DataFrame to CSV file
+
+# Name inventory function for saving to a CSV file
+def name_inventory(name):
+    name = name.strip()
+    if not name:
+        name = "inventory.csv"
+    elif not name.endswith(".csv"):
+        name += ".csv"
+    return name
+
+# Load inventory from a csv file using a with statement
+def load_records(filename, inv):
+    try:
+        with open(filename, 'r') as file:
+            pandalibrary = pd.read_csv(file, index_col=0)  # Load CSV into df
+            return pandalibrary.to_dict(orient='index')  # Convert df back to dictionary
+    # file corrupted or not found error handling
+    except pd.errors.EmptyDataError:
+        if inv:  # if the inventory is not empty
+            return (inv, f"File '{filename}' is empty or corrupted. Keeping current inventory.")
+        if not inv:  # if the inventory is empty
+            return ({}, f"File '{filename}' is empty or corrupted. Starting with an empty inventory.")
+    except FileNotFoundError:
+        if inv:  # if the inventory is not empty
+            return (inv, f"File '{filename}' not found. Keeping current inventory.")
+        if not inv:  # if the inventory is empty
+            return ({}, f"File '{filename}' not found. Starting with an empty inventory.")
+
+# Save record file
+'''
+ADD ITEM TO INVENTORY
+'''
 # user inputs name and function checks if it's valid
 def name_obj(inv, name):
     name = name.strip()
@@ -353,6 +406,8 @@ def name_obj(inv, name):
         return (False, "Item already exists.")
     if name == "":
         return (False, "Name cannot be blank.")
+    if len(name) > 500:
+        return (False, "Name cannot exceed 500 characters.")
     return (True, f"Name is {name}.")
 
 # user inputs quantity and function checks if it's valid
@@ -473,8 +528,8 @@ def create_order(inv):
 
         item_name = input("Enter item name to add to order (or 'done' to finish): ").strip()
         if item_name.lower() == "done":
-            if not selected:
-                return False, "No items were selected for the order."
+            if not selected:                                            # check if anything was ordered
+                return False, "No items were selected for the order."   
             break
 
         if item_name == "":
@@ -519,7 +574,9 @@ def main(): # this big function that I hate | IMPURE
     Responses2 = ["2", "view records", "view"]
     Responses3 = ["3", "delete record", "delete"]
     Responses4 = ["4", "create order", "order"]
-    Responses5 = ["5", "quit", "exit"]
+    Responses5 = ["5", "import records", "import"]
+    Responses6 = ["6", "export records", "export"]
+    Responses7 = ["7", "quit", "exit"]
     inventory = {}  
     while True: # main menu loop
         print(r"""
@@ -532,7 +589,9 @@ Very Simple Inventory Manager
 2. View Records
 3. Delete Record
 4. Create Order
-5. Quit""")
+5. Import Records
+6. Export Records
+7. Quit""")
         main_choice = input("Please select an option: ") # user selects2
         if main_choice.lower() in Responses1:            # add record
             # Get name
@@ -600,10 +659,57 @@ Very Simple Inventory Manager
             _, message = create_order(inventory)
             print(message)
 
-        # QUIT
+        # IMPORT RECORDS
         elif main_choice.lower() in Responses5:
-            print("Goodbye!")
-            break
+            filename = input("Enter filename to import inventory (default: inventory.csv): ")
+            filename = name_inventory(filename)
+            inventory = load_records(filename, inventory)[0]  # Load records and update inventory
+            print(load_records(filename, inventory)[1])  # Print the message from load_records
+
+        # EXPORT RECORDS
+        elif main_choice.lower() in Responses6:
+            if not inventory:
+                print("The inventory is empty.")
+            else:
+                potentialname = input("Enter filename to save inventory (default: inventory.csv): ")
+                filename = name_inventory(potentialname)
+                save_records(inventory, filename)
+                print(f"Inventory saved to '{filename}'.")
+
+        # QUIT
+        elif main_choice.lower() in Responses7:
+            if inventory:       # Check if the user created any records
+                confirm = input("Would you like to save your inventory? (Y/n): ").strip().lower()
+                if confirm in ['y', 'yes']:
+                    potentialname = input("Enter filename to save inventory (default: inventory.csv): ")
+                    filename = name_inventory(potentialname)
+                    save_records(inventory, filename)
+                    print(f"Inventory saved to '{filename}'. Goodbye!")
+                if confirm in ['n', 'no']:
+                    print("Goodbye!")
+                    break
+            if not inventory:   # Just exit if there's no inventory
+                print("Goodbye!")
+                break
+        else:
+            print("Invalid option. Please try again.")
+
+if __name__ == "__main__":
+    main()
+        elif main_choice.lower() in Responses7:
+            if inventory:       # Check if the user created any records
+                confirm = input("Would you like to save your inventory? (Y/n): ").strip().lower()
+                if confirm in ['y', 'yes']:
+                    potentialname = input("Enter filename to save inventory (default: inventory.csv): ")
+                    filename = name_inventory(potentialname)
+                    save_records(inventory, filename)
+                    print(f"Inventory saved to '{filename}'. Goodbye!")
+                if confirm in ['n', 'no']:
+                    print("Goodbye!")
+                    break
+            if not inventory:   # Just exit if there's no inventory
+                print("Goodbye!")
+                break
         else:
             print("Invalid option. Please try again.")
 
