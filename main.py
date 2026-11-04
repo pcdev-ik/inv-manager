@@ -6,11 +6,14 @@ I miss PyCharm... ( 〒▽〒)
 '''
 IMPORTS
 '''
-from pprint import pprint # not a clue why I'm required to use this
+import pprint # not a clue why I'm required to use this
 import math
 import pandas as pd
 import signal
 import sys
+import matplotlib.pyplot as plt 
+
+
 
 '''
 BASIC INPUT HANDLER
@@ -33,6 +36,11 @@ def getchoice(prompt):
             continue
         return choice
 
+def is_yes(answer):
+    return answer.strip().lower() in ["yes", "y"]
+
+
+
 '''
 SIGINT HANDLER
 '''
@@ -41,6 +49,8 @@ def sighandler(sig, frame):
     print("\n Interrupt received. Exiting program...")
     sys.exit(0)
 signal.signal(signal.SIGINT, sighandler)
+
+
 
 '''
 FILE MANAGEMENT
@@ -160,7 +170,9 @@ def load_records(filename, inv):
             return (inv, f"File '{filename}' not found. Keeping current inventory.")
         if not inv:  # if the inventory is empty
             return ({}, f"File '{filename}' not found. Starting with an empty inventory.")
-        
+
+
+
 '''
 ADD ITEM TO INVENTORY
 '''
@@ -302,6 +314,8 @@ def edit_item(inv, name):
         f"{updated_quantity} and price ${updated_price:.2f}.",
     )
 
+
+
 '''
 CHART CREATION
 '''
@@ -354,9 +368,7 @@ def delete_record(inv, name):
     return (True, f"Item '{name}' has been deleted.")
     
 
-# Check whether a response is a yes answer
-def is_yes(answer):
-    return answer.strip().lower() in ["yes", "y"]
+
 
 '''
 ORDER FUNCTIONS
@@ -457,6 +469,8 @@ def create_order(inv):
 
     return apply_order(inv, selected)
 
+
+
 '''
 SEARCH FUNCTION
 '''
@@ -472,6 +486,8 @@ def search_item(inv, search_name):
         if search_name in name.lower()
     ]
     return matches
+
+
 
 '''
 CHARTS
@@ -540,7 +556,7 @@ def calculate_highscores(inv):
         least_expensive,
         most_stocked,
         least_stocked,
-    )
+        )
 
 # THE BIG CHART
 def the_big_chart(inv):
@@ -557,12 +573,14 @@ Write your option(s) separated by spaces. Use the option form (like "-dc") NOT t
 """)
     selected_options = set(chartoptions.split()) # turns the typed options into a set
 
-    def option_selected(*aliases):
+    def option_selected(*aliases): # note: the asterisk here turns input into a tuple
         return any(alias in selected_options for alias in aliases) # if anything in the list matches the given option, returns True
 
+    # option default chart
     if option_selected("1", "chart", "-dc"):
         chart(inv)
 
+    # option high-low
     if option_selected("2", "-iv"):
         calcdict = calculate_item_values(inv)
         print("\nItem Values")
@@ -573,15 +591,19 @@ Write your option(s) separated by spaces. Use the option form (like "-dc") NOT t
         print("-" * 39)
         print(f"{'Total Item Value:':<25}${sum(calcdict.values()):>12.2f}")
 
+    # option count records
     if option_selected("3", "number", "-n"):
         print(f"\nNumber of Records: {len(inv)}")
 
+    # option average value
     if option_selected("4", "average", "-acv"):
         print(f"\nAverage item value: ${calculate_average_item_value(inv):.2f}")
-        
+
+    # option chart value
     if option_selected("5", "value", "-cv"):
         print(f"\nInventory value: ${calculate_chart_value(inv):.2f}")
 
+    # option stock sort
     if option_selected("6", "group", "stock", "-gr"):
         groups = group_records_by_stock(inv)
         stock_labels = (
@@ -603,7 +625,8 @@ Write your option(s) separated by spaces. Use the option form (like "-dc") NOT t
                     print(f"{name:<25}{item['quantity']:>10}")
             else:
                 print("No records.")
-        
+    
+    # option percentage distribution
     if option_selected("7", "percentage", "-p"):
         print("\nPercentage of Inventory Value")
         if calculate_chart_value(inv) == 0:
@@ -620,6 +643,7 @@ Write your option(s) separated by spaces. Use the option form (like "-dc") NOT t
                     f"{'#' * bar_length}"
                 )
 
+    # option high score
     if option_selected("8", "highscore", "-h"):
         (
             first_added,
@@ -643,8 +667,129 @@ Write your option(s) separated by spaces. Use the option form (like "-dc") NOT t
 
     print("\n")
 
-        
+# Export a dashboard containing everything in the_big_chart
+def export_analytics(inv):
+    if not inv:
+        print("There are no records to chart.")
+        return
 
+    # Sort by index
+    sorted_items = sorted(
+        inv.items(),
+        key=lambda entry: entry[1].get("index", 0),
+    )
+    names = [name for name, _ in sorted_items]
+    values = [calculate_item_value(item) for _, item in sorted_items]
+    item_values = calculate_item_values(inv)
+    stock_groups = group_records_by_stock(inv)
+    total_value = calculate_chart_value(inv)
+
+    figure, axes = plt.subplots(3, 2, figsize=(18, 15)) # make a 3x2 grid of plots that's 18x15 inches
+    inventory_axis, item_values_axis, stock_axis, percentages_axis, summary_axis, metrics_axis = (axes.flat) # flatten the axes array for easier access
+
+    # Value by item
+    inventory_axis.bar(names, values)
+    inventory_axis.set_title("Inventory Value by Item")
+    inventory_axis.set_xlabel("Item")
+    inventory_axis.set_ylabel("Inventory Value ($)")
+    inventory_axis.tick_params(axis="x", labelrotation=45)
+
+    # Rank values
+    item_values_axis.barh(list(item_values), list(item_values.values()))
+    item_values_axis.set_title("Item Values: Lowest to Highest")
+    item_values_axis.set_xlabel("Inventory Value ($)")
+
+    # Sort by stock
+    stock_labels = ("High stock (20+)", "In stock (5-19)", "Low stock (<5)")    # the words you see
+    stock_keys = ("high_stock", "in_stock", "low_stock")                        # the backend titles
+    stock_counts = [len(stock_groups[key]) for key in stock_keys]               
+    stock_axis.bar(stock_labels, stock_counts)
+    stock_axis.set_title("Records by Stock Group")
+    stock_axis.set_ylabel("Number of Records")
+    stock_axis.tick_params(axis="x", labelrotation=20)
+
+    if total_value > 0:
+        # if greater than 0
+        percentages = calculate_value_percentages(inv)
+        percentages_axis.pie(
+            list(percentages.values()),
+            labels=list(percentages),
+            autopct="%1.1f%%",
+        )
+        percentages_axis.axis("equal")
+        percentages_axis.set_title("Percentage of Inventory Value")
+    else:
+        # Reject if inventory value is 0 
+        percentages_axis.text(
+            0.5,
+            0.5,
+            "Cannot calculate percentages:\ntotal inventory value is zero.",
+            ha="center",
+            va="center",
+        )
+        percentages_axis.set_title("Percentage of Inventory Value")
+        percentages_axis.axis("off")
+
+    # Text panel for inventory summary 
+    summary_axis.axis("off")
+    summary_axis.set_title("Inventory Summary")
+    summary_axis.text(
+        0.05,
+        0.95,
+        "\n".join(
+            # Make an overview
+            (
+                f"Number of records: {len(inv)}",
+                f"Average item value: ${calculate_average_item_value(inv):.2f}",
+                f"Total inventory value: ${total_value:.2f}",
+            )),va="top",)
+
+    (
+        first_added,
+        most_recent,
+        most_valuable,
+        least_valuable,
+        most_expensive,
+        least_expensive,
+        most_stocked,
+        least_stocked,
+    ) = calculate_highscores(inv)
+    metrics_axis.axis("off")
+    metrics_axis.set_title("Highest Metrics")
+    metrics_axis.text(
+        0.05,
+        0.95,
+        "\n".join(
+            (
+                f"First added: {first_added}",
+                f"Most recent: {most_recent}",
+                f"Most valuable: {most_valuable}",
+                f"Least valuable: {least_valuable}",
+                f"Most expensive: {most_expensive}",
+                f"Least expensive: {least_expensive}",
+                f"Most stocked: {most_stocked}",
+                f"Least stocked: {least_stocked}",
+            )),va="top",)
+
+    figure.tight_layout()
+
+    try:
+        filename = input(
+            "Enter filename to save chart (default: inventory_analytics.png): "
+        ).strip()
+        if not filename:
+            filename = "inventory_analytics.png"
+        try:
+            figure.savefig(filename)
+        except (OSError, ValueError) as error:
+            print(f"Could not save chart to '{filename}': {error}")
+        else:
+            print(f"Chart saved to '{filename}'.")
+        plt.show() # for graphical interfaces
+    finally:
+        # Release the figure even if displaying it raises an error.
+        plt.close(figure)
+        
 
 '''
 MAIN MENU
@@ -796,12 +941,18 @@ Very Simple Inventory Manager
             if not inventory:
                 print("The inventory is empty.")
             else:
-                potentialname = input("Enter filename to save inventory (default: inventory.csv): ")
-                filename = name_inventory(potentialname)
-                save_records(inventory, filename)
-                print(f"Inventory saved to '{filename}'.")
-                autosavecheck = autosave_asker()
-                print(autosavecheck[1])
+                expchoice = getchoice("""What would you like to export?
+1. Export Records
+2. Export Analytics""")
+                if expchoice in ["1", "export records", "records"]:
+                    potentialname = input("Enter filename to save inventory (default: inventory.csv): ")
+                    filename = name_inventory(potentialname)
+                    save_records(inventory, filename)
+                    print(f"Inventory saved to '{filename}'.")
+                    autosavecheck = autosave_asker()
+                    print(autosavecheck[1])
+                elif expchoice in ["2", "export analytics", "analytics"]:
+                    export_analytics(inventory)
 
         # QUIT
         elif main_choice.lower() in Responses8:
